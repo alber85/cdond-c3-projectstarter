@@ -89,6 +89,7 @@ jobs:
             npm install 
             npm audit fix --audit-level=critical --force
       - notify_on_failure
+
   scan-backend:
     docker:
      - image: circleci/node:13.8.0
@@ -106,7 +107,7 @@ jobs:
 
   notify_on_success:
     docker:
-     - image: cimg/base
+     - image: 'cimg/base:stable'
     steps:
       - slack/notify:
           event: pass
