@@ -105,6 +105,46 @@ jobs:
             npm audit fix --audit-level=critical
       - notify_on_failure
 
+  deploy-infrastructure:
+    docker:
+     - image: amazon/aws-cli
+    steps:
+      - checkout
+      - install_awscli
+      - run:
+            name: Ensure back-end infrastructure exists
+            command: |
+                aws cloudformation deploy \
+                  --template-file .circleci/files/backend.yml \
+                  --tags project=udapeople \
+                  --stack-name "udapeople-back-end-${CIRCLE_WORKFLOW_ID:0:7}" \
+                  --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
+      - run:
+          name: Ensure front-end infrastructure exist
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/frontend.yml \
+              --tags project=udapeople \
+              --stack-name "udapeople-front-end-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
+      - run:
+          name: Add back-end ip to ansible inventory
+          command: |
+            BACKEND_PUBLIC_IP=$(aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --output text)
+            echo $BACKEND_PUBLIC_IP >> .circleci/ansible/inventory.txt
+            cat .circleci/ansible/inventory.txt
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/.circleci/ansible/inventory.txt
+      - destroy-environment
+
+      # Here's where you will add some code to rollback on failure      
+
+
   notify_on_success:
     docker:
      - image: 'cimg/base:stable'
@@ -127,6 +167,13 @@ workflows:
           requires: [build-frontend]
       - scan-backend:
           requires: [build-backend]
+      - deploy-infrastructure:
+          requires:
+              - build-frontend
+              - build-backend
+              - test-frontend
+              - scan-frontend
+              - scan-backend
       - notify_on_success: 
           requires:
               - build-frontend
@@ -134,3 +181,4 @@ workflows:
               - test-frontend
               - scan-frontend
               - scan-backend
+              - deploy-infrastructure
