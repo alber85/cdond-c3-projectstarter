@@ -1,6 +1,13 @@
 version: 2.1 
 orbs:
   slack: circleci/slack@4.10.1
+commands:
+  notify_on_failure:
+    steps:
+      - slack/notify:
+          event: fail
+          channel: circleci
+          template: basic_fail_1
 jobs:
   build-frontend:
     docker:
@@ -18,6 +25,7 @@ jobs:
       - save_cache:
           paths: [frontend/node_modules]
           key: frontend-build
+      - notify_on_failure
 
   build-backend:
     docker:
@@ -35,6 +43,8 @@ jobs:
       - save_cache:
           paths: [backend/node_modules]
           key: backend-build
+      - notify_on_failure
+
   test-frontend:
     docker:
       - image: circleci/node:13.8.0
@@ -48,7 +58,8 @@ jobs:
             cd frontend
             npm install 
             npm run test
-          
+      - notify_on_failure
+   
   test-backend:
     docker:
       - image: circleci/node:13.8.0
@@ -62,6 +73,8 @@ jobs:
             cd backend
             npm install
             npm run test
+      - notify_on_failure
+
   scan-frontend:
     docker:
      - image: circleci/node:13.8.0
@@ -76,7 +89,7 @@ jobs:
             npm install 
             npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical
-
+      - notify_on_failure
   scan-backend:
     docker:
      - image: circleci/node:13.8.0
@@ -91,27 +104,17 @@ jobs:
             npm install 
             npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical
-  notify:
-    docker:
-      - image: 'cimg/base:stable'
-    steps:
+      - notify_on_failure
+
+notify_on_success:
+  docker:
+     - image: cimg/base
+  steps:
       - slack/notify:
-          custom: |
-            {
-              "blocks": [
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "plain_text",
-                      "text": "*Hello notification*",
-                      "emoji": true
-                    }
-                  ]
-                }
-              ]
-            }
-          event: always
+          event: pass
+          channel: circleci
+          template: success_tagged_deployment_1
+
 workflows:
   default:
     jobs:
@@ -125,7 +128,10 @@ workflows:
           requires: [build-frontend]
       - scan-backend:
           requires: [build-backend]
-  send-notification:
-    jobs:
-      - notify:
-          context: udacity
+      - notify_on_success: 
+          requires:
+              - build-frontend
+              - build-backend
+              - test-frontend
+              - scan-frontend
+              - scan-backend
