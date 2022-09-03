@@ -371,9 +371,10 @@ jobs:
              command: |
                  aws cloudformation deploy \
                           --template-file .circleci/files/cloudfront.yml \
-                          --stack-name createCDN \
-                          --parameter-overrides WorkflowID="udapeople-${CIRCLE_WORKFLOW_ID:0:7}" \
-                          --tags project=udapeople
+                          --stack-name InitialStack \
+                          --parameter-overrides WorkflowID="udapeople-${CIRCLE_WORKFLOW_ID:0:7}"
+
+
       - destroy-environment
       - revert-migrations
 
